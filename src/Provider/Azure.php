@@ -12,6 +12,7 @@ use TheNetworg\OAuth2\Client\Grant\JwtBearer;
 use TheNetworg\OAuth2\Client\Token\AccessToken;
 use Psr\Http\Message\ResponseInterface;
 use \Firebase\JWT\JWT;
+use UnexpectedValueException;
 
 class Azure extends AbstractProvider
 {
@@ -341,4 +342,40 @@ class Azure extends AbstractProvider
         $this->checkResponse($response, $parsed);
         return $parsed;
     }
+
+    /**
+     * Parses the response according to its content-type header.
+     *
+     * @throws UnexpectedValueException
+     * @param  ResponseInterface $response
+     * @return array
+     */
+    protected function parseResponse(ResponseInterface $response)
+    {
+        $content = (string) $response->getBody();
+        $type = $this->getContentType($response);
+        if (strpos($type, 'urlencoded') !== false) {
+            parse_str($content, $parsed);
+            return $parsed;
+        }
+        // Attempt to parse the string as JSON regardless of content type,
+        // since some providers use non-standard content types. Only throw an
+        // exception if the JSON could not be parsed when it was expected to.
+        try {
+            return $this->parseJson($content);
+        } catch (UnexpectedValueException $e) {
+            if (strpos($type, 'json') !== false) {
+                throw $e;
+            }
+            if ($response->getStatusCode() == 500) {
+                throw new UnexpectedValueException(
+                    'An OAuth server error was encountered that did not contain a JSON body',
+                    0,
+                    $e
+                );
+            }
+            return $content;
+        }
+    }
+
 }
