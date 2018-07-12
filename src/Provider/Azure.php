@@ -2,10 +2,12 @@
 
 namespace TheNetworg\OAuth2\Client\Provider;
 
+use GuzzleHttp\Exception\BadResponseException;
 use League\OAuth2\Client\Provider\AbstractProvider;
 use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
 use League\OAuth2\Client\Tool\BearerAuthorizationTrait;
 use League\OAuth2\Client\Grant\AbstractGrant;
+use Psr\Http\Message\RequestInterface;
 use TheNetworg\OAuth2\Client\Grant\JwtBearer;
 use TheNetworg\OAuth2\Client\Token\AccessToken;
 use Psr\Http\Message\ResponseInterface;
@@ -319,5 +321,24 @@ class Azure extends AbstractProvider
         $response = $this->getParsedResponse($request);
         
         return $response;
+    }
+
+    /**
+     * Sends a request and returns the parsed response.
+     *
+     * @param  RequestInterface $request
+     * @throws IdentityProviderException
+     * @return mixed
+     */
+    public function getParsedResponse(RequestInterface $request)
+    {
+        try {
+            $response = $this->getResponse($request);
+        } catch (BadResponseException $e) {
+            $response = $e->getResponse();
+        }
+        $parsed = $this->parseResponse($response);
+        $this->checkResponse($response, $parsed);
+        return $parsed;
     }
 }
